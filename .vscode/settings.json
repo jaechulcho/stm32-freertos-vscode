@@ -1,0 +1,5 @@
+{
+  "clangd.arguments": [
+    "--query-driver=C:\\ST\\STM32CubeCLT\\GNU-tools-for-STM32\\bin\\arm-none-eabi-gcc"
+  ]
+}
