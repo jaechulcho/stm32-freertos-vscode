@@ -20,8 +20,6 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
-#include "cmsis_os.h"
-#include "cmsis_os2.h"
 #include "portmacro.h"
 #include "projdefs.h"
 #include "stm32l4xx_hal_uart.h"
