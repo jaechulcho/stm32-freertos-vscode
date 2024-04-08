@@ -35,7 +35,7 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-
+typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -66,9 +66,18 @@ static StaticTask_t xdefaultTaskBuffer;
 static TimerHandle_t xCyclicTimerHandle;
 static StaticTimer_t xCyclicTimerBuffer;
 
+static long long llInitialRunTimeCounterValue  = 0LL;
+static long long llTicksPerHundredhMillisecond = 0LL;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+void        SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_LPUART1_UART_Init(void);
+static void MX_USART3_UART_Init(void);
+static void MX_USB_OTG_FS_PCD_Init(void);
+void        StartDefaultTask(void* argument);
 
 /* USER CODE BEGIN PFP */
 static void SystemClock_Config(void);
@@ -78,6 +87,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void StartDefaultTask(void* argument);
 static void vCyclicTimerCB(TimerHandle_t xTimer);
+static vConfigTimerForRunTimeStats(void);
 
 /* USER CODE END PFP */
 
@@ -420,6 +430,12 @@ void vCyclicTimerCB(TimerHandle_t xTimer)
 #else
   (void)xTaskNotifyFromISR(defaultTaskHandle, 0UL, eIncrement, &hpTaskWoken);
 #endif
+}
+
+void vConfigureTimerForRunTimeStats(void)
+{
+  LARGE_INTEGER liPerformanceCounterFrequency;
+  LARGE_INTEGER liInitialRunTimeValues;
 }
 /* USER CODE END 4 */
 
