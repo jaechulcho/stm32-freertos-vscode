@@ -29,6 +29,7 @@
 #include "projdefs.h"
 #include "task.h"
 #include "timers.h"
+#include "spi_slave.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,8 +58,6 @@ SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
 DMA_HandleTypeDef hdma_spi1_rx;
 
-PCD_HandleTypeDef hpcd_USB_OTG_FS;
-
 /* Definitions for defaultTask */
 osThreadId_t         defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -84,7 +83,6 @@ static void MX_DMA_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_ADC1_Init(void);
 void        StartDefaultTask(void* argument);
 
@@ -132,7 +130,6 @@ int main(void)
   MX_LPUART1_UART_Init();
   MX_USART3_UART_Init();
   MX_SPI1_Init();
-  MX_USB_OTG_FS_PCD_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
@@ -181,6 +178,8 @@ int main(void)
       configMAX_PRIORITIES - 5,
       defaultTaskBuffer,
       &xdefaultTaskBuffer);
+
+  (void)StartSPITask(&hspi1);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -220,9 +219,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
    * in the RCC_OscInitTypeDef structure.
    */
-  RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSI48 | RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState            = RCC_HSI_ON;
-  RCC_OscInitStruct.HSI48State          = RCC_HSI48_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_HSI;
@@ -428,39 +426,6 @@ static void MX_SPI1_Init(void)
 }
 
 /**
- * @brief USB_OTG_FS Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USB_OTG_FS_PCD_Init(void)
-{
-
-  /* USER CODE BEGIN USB_OTG_FS_Init 0 */
-
-  /* USER CODE END USB_OTG_FS_Init 0 */
-
-  /* USER CODE BEGIN USB_OTG_FS_Init 1 */
-
-  /* USER CODE END USB_OTG_FS_Init 1 */
-  hpcd_USB_OTG_FS.Instance                     = USB_OTG_FS;
-  hpcd_USB_OTG_FS.Init.dev_endpoints           = 6;
-  hpcd_USB_OTG_FS.Init.speed                   = PCD_SPEED_FULL;
-  hpcd_USB_OTG_FS.Init.phy_itface              = PCD_PHY_EMBEDDED;
-  hpcd_USB_OTG_FS.Init.Sof_enable              = DISABLE;
-  hpcd_USB_OTG_FS.Init.low_power_enable        = DISABLE;
-  hpcd_USB_OTG_FS.Init.lpm_enable              = DISABLE;
-  hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.use_dedicated_ep1       = DISABLE;
-  hpcd_USB_OTG_FS.Init.vbus_sensing_enable     = DISABLE;
-  if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK) {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USB_OTG_FS_Init 2 */
-
-  /* USER CODE END USB_OTG_FS_Init 2 */
-}
-
-/**
  * Enable DMA controller clock
  */
 static void MX_DMA_Init(void)
@@ -530,6 +495,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_PowerSwitchOn_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : USB_SOF_Pin USB_ID_Pin USB_DM_Pin USB_DP_Pin */
+  GPIO_InitStruct.Pin       = USB_SOF_Pin | USB_ID_Pin | USB_DM_Pin | USB_DP_Pin;
+  GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull      = GPIO_NOPULL;
+  GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : USB_VBUS_Pin */
+  GPIO_InitStruct.Pin  = USB_VBUS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(USB_VBUS_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */

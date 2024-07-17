@@ -52,9 +52,6 @@ target_sources(stm32cubemx INTERFACE
     ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_spi_ex.c
     ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_tim.c
     ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_tim_ex.c
-    ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_pcd.c
-    ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_pcd_ex.c
-    ../../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_usb.c
     ../../Core/Src/system_stm32l4xx.c
     ../../Middlewares/Third_Party/FreeRTOS/Source/croutine.c
     ../../Middlewares/Third_Party/FreeRTOS/Source/event_groups.c
