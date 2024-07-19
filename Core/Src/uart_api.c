@@ -5,6 +5,7 @@
 #include "stm32l4xx_hal.h"
 #include "stm32l4xx_hal_def.h"
 #include "stm32l4xx_hal_uart.h"
+#include "myerror.h"
 
 /* external variable */
 
@@ -18,14 +19,15 @@ int printf_init(UART_HandleTypeDef* puart_)
 {
   int retval = 0;
   puart      = puart_;
-  huartsema  = xSemaphoreCreateBinaryStatic(&xUartSemaphorBuffer);
+
+  huartsema = xSemaphoreCreateBinaryStatic(&xUartSemaphorBuffer);
   if (NULL == huartsema) {
-    retval = -1;
+    retval = ERR_CREATESEMA_FAIL;
   }
   if (retval == 0) {
     huartmutex = xSemaphoreCreateMutexStatic(&xUartMutexBuffer);
     if (NULL == huartmutex) {
-      retval = -2;
+      retval = ERR_CREATEMUTEX_FAIL;
     }
   }
 

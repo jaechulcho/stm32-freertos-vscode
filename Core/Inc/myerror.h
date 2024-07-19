@@ -1,0 +1,7 @@
+#ifndef __MYERROR_H
+#define __MYERROR_H
+
+#define ERR_CREATESEMA_FAIL  (0x90000000)
+#define ERR_CREATEMUTEX_FAIL (0x90000001)
+
+#endif
