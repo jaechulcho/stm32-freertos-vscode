@@ -30,6 +30,7 @@
 #include "task.h"
 #include "timers.h"
 #include "spi_slave.h"
+#include "uart_api.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -132,7 +133,7 @@ int main(void)
   MX_SPI1_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-
+  printf_init(&hlpuart1);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -544,15 +545,12 @@ static void StartMainTask(void* argument)
   }
   /* Infinite loop */
   while (pdTRUE) {
-    char cTempStrBuf[128];
     retStatus = xTaskNotifyWait(clearonentry, clearonexit,
         &DefaultTaskNotifyValue, portMAX_DELAY);
     if (pdFAIL == retStatus) {
       Error_Handler();
     }
-    sprintf(cTempStrBuf, "[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
-    HAL_UART_Transmit(&hlpuart1, (uint8_t*)cTempStrBuf, strlen(cTempStrBuf), 1000U);
-    // HAL_UART_Transmit(&hlpuart1, (uint8_t*)strhelloworld, strlen(strhelloworld), 1000U);
+    printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
   }
 }
 
