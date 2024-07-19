@@ -61,8 +61,9 @@ static void SPISlaveTask(void* pvParameters)
   while (pdTRUE) {
     if (HAL_SPI_TransmitReceive_DMA(hspi, (uint8_t*)aTxBuffer, (uint8_t*)aRxBuffer, BUFFERSIZE) != HAL_OK) {
       Error_Handler();
+    } else {
+      ulTaskNotifyTake(0, portMAX_DELAY);
     }
-    ulTaskNotifyTake(0, portMAX_DELAY);
   }
 }
 

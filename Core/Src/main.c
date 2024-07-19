@@ -54,6 +54,7 @@ ADC_HandleTypeDef hadc1;
 
 UART_HandleTypeDef hlpuart1;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef  hdma_lpuart1_tx;
 
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
@@ -133,7 +134,10 @@ int main(void)
   MX_SPI1_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-  printf_init(&hlpuart1);
+  if (printf_init(&hlpuart1) != 0) {
+    Error_Handler();
+  }
+  (void)printf("%s\r\n", "printf_init...ok");
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -443,6 +447,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 }
 
 /**
