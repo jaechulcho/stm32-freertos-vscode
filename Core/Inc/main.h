@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define STLINK_TX_GPIO_Port GPIOG
 #define STLINK_RX_Pin GPIO_PIN_8
 #define STLINK_RX_GPIO_Port GPIOG
+#define LD1_Pin GPIO_PIN_7
+#define LD1_GPIO_Port GPIOC
 #define USB_SOF_Pin GPIO_PIN_8
 #define USB_SOF_GPIO_Port GPIOA
 #define USB_VBUS_Pin GPIO_PIN_9

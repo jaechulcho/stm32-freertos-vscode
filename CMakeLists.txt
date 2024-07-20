@@ -50,11 +50,14 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/Src/spi_slave.c
     Core/Src/uart_api.c
+    Core/Src/shell.c
+    Middlewares/Third_Party/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI/FreeRTOS_CLI.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    Middlewares/Third_Party/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI
 )
 
 # Add project symbols (macros)

@@ -15,6 +15,7 @@
  *
  ******************************************************************************
  */
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +32,8 @@
 #include "timers.h"
 #include "spi_slave.h"
 #include "uart_api.h"
+#include "led.h"
+#include "shell.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -155,7 +158,7 @@ int main(void)
   /* start timers, add new ones, ... */
   xCyclicTimerHandle = xTimerCreateStatic(
       "CyclicTimer",
-      pdMS_TO_TICKS(1000),
+      pdMS_TO_TICKS(100),
       pdTRUE,
       NULL,
       vCyclicTimerCB,
@@ -185,6 +188,7 @@ int main(void)
       &xdefaultTaskBuffer);
 
   (void)StartSPITask(&hspi1);
+  (void)ShellTaskStart();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -478,6 +482,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LD1_GPIO_Port, LD1_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin  = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -504,6 +511,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_PowerSwitchOn_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : LD1_Pin */
+  GPIO_InitStruct.Pin   = LD1_Pin;
+  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LD1_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : USB_SOF_Pin USB_ID_Pin USB_DM_Pin USB_DP_Pin */
   GPIO_InitStruct.Pin       = USB_SOF_Pin | USB_ID_Pin | USB_DM_Pin | USB_DP_Pin;
   GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
@@ -527,24 +541,17 @@ void vCyclicTimerCB(TimerHandle_t xTimer)
 {
   (void)xTimer;
 
-  BaseType_t hpTaskWoken = pdFALSE;
-#if 1
-  (void)hpTaskWoken;
-
-  (void)xTaskNotify(MainTaskHandle, 0UL, eIncrement);
-#else
-  (void)xTaskNotifyFromISR(MainTaskHandle, 0UL, eIncrement, &hpTaskWoken);
-#endif
+  (void)xTaskNotify(MainTaskHandle, 0UL, eNoAction);
 }
 
 static void StartMainTask(void* argument)
 {
   (void)argument;
-  BaseType_t        retStatus              = pdPASS;
-  static const char strhelloworld[]        = "Hello. World!";
-  uint32_t          DefaultTaskNotifyValue = 0U;
-  uint32_t          clearonentry           = 0U;
-  uint32_t          clearonexit            = 0U;
+  BaseType_t retStatus              = pdPASS;
+  // static const char strhelloworld[]        = "Hello. World!";
+  uint32_t   DefaultTaskNotifyValue = 0U;
+  uint32_t   clearonentry           = 0U;
+  uint32_t   clearonexit            = ULONG_MAX;
 
   retStatus = xTimerStart(xCyclicTimerHandle, 0UL);
   if (pdFAIL == retStatus) {
@@ -557,7 +564,8 @@ static void StartMainTask(void* argument)
     if (pdFAIL == retStatus) {
       Error_Handler();
     }
-    printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
+    LEDToggle(LED1);
+    // printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
   }
 }
 
@@ -610,6 +618,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  LEDOn(LED3);
   while (1) {
   }
   /* USER CODE END Error_Handler_Debug */
