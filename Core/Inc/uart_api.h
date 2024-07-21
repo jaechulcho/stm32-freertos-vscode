@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 extern int printf_init(UART_HandleTypeDef* puart_);
+extern int uart_send(char* ptr_, int len_);
 extern int register_rxqueue(QueueHandle_t const que_);
 extern int uart_rx_it_enable(void);
 

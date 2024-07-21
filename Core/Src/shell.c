@@ -115,7 +115,7 @@ static void ShellTask(void* argument)
       vConsoleWrite("\r\n");
       vConsoleWrite(prompt);
       break;
-    case '\f':
+    case '\f': // press 1 and 2 sequensely in numeric key with ALT down
       vConsoleWrite("\x1b[2J\x1b[0;0H");
       vConsoleWrite("\r\n");
       vConsoleWrite(prompt);
@@ -174,20 +174,19 @@ static int xGetChar(uint8_t* prxChar_, size_t len_)
   return retval;
 }
 
+static int vConsoleWrite(const char* buff)
+{
+  int retval;
+  retval = uart_send((void*)buff, strlen(buff));
+  return retval;
+}
+
 static BaseType_t prvCmdVersion(char* pcWriteBuffer, size_t xWriteBufferLen, const char* pcCommandString)
 {
   BaseType_t retval = pdFALSE;
   (void)pcCommandString;
 
-  (void)snprintf(pcWriteBuffer, xWriteBufferLen, "%s\r\n", "Hello. Wrorld");
+  (void)snprintf(pcWriteBuffer, xWriteBufferLen, "%s\r\n", "Hello. World");
 
-  return retval;
-}
-
-static int vConsoleWrite(const char* buff)
-{
-  int retval;
-  retval = printf("%s", buff);
-  fflush(0);
   return retval;
 }

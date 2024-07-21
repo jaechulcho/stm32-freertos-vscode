@@ -44,9 +44,8 @@ int printf_init(UART_HandleTypeDef* puart_)
   return retval;
 }
 
-int _write(int file_, char* ptr_, int len_)
+int uart_send(char* ptr_, int len_)
 {
-  (void)file_;
   BaseType_t        state;
   HAL_StatusTypeDef retval;
 
@@ -71,6 +70,12 @@ int _write(int file_, char* ptr_, int len_)
     (void)xSemaphoreGive(huartmutex);
   }
   return len_;
+}
+
+int _write(int file_, char* ptr_, int len_)
+{
+  (void)file_;
+  return uart_send(ptr_, len_);
 }
 
 /*

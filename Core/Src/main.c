@@ -28,15 +28,18 @@
 /* USER CODE BEGIN Includes */
 #include <sys/types.h>
 #include "projdefs.h"
+#include "stm32l4xx_hal_tim.h"
 #include "task.h"
 #include "timers.h"
 #include "spi_slave.h"
 #include "uart_api.h"
 #include "led.h"
 #include "shell.h"
+#include "adc_manage.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
+typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -54,6 +57,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 UART_HandleTypeDef hlpuart1;
 UART_HandleTypeDef huart3;
@@ -63,18 +67,21 @@ SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
 DMA_HandleTypeDef hdma_spi1_rx;
 
+TIM_HandleTypeDef htim3;
+
 /* Definitions for defaultTask */
 osThreadId_t         defaultTaskHandle;
+uint32_t             defaultTaskBuffer[128];
+osStaticThreadDef_t  defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name       = "defaultTask",
-  .stack_size = 128 * 4,
+  .cb_mem     = &defaultTaskControlBlock,
+  .cb_size    = sizeof(defaultTaskControlBlock),
+  .stack_mem  = &defaultTaskBuffer[0],
+  .stack_size = sizeof(defaultTaskBuffer),
   .priority   = (osPriority_t)osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
-
-static TaskHandle_t MainTaskHandle;
-static StackType_t  defaultTaskBuffer[MAINTASK_STACK_SIZE];
-static StaticTask_t xdefaultTaskBuffer;
 
 static TimerHandle_t xCyclicTimerHandle;
 static StaticTimer_t xCyclicTimerBuffer;
@@ -89,10 +96,10 @@ static void MX_LPUART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM3_Init(void);
 void        StartDefaultTask(void* argument);
 
 /* USER CODE BEGIN PFP */
-static void StartMainTask(void* argument);
 static void vCyclicTimerCB(TimerHandle_t xTimer);
 
 /* USER CODE END PFP */
@@ -110,7 +117,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  int retval;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -136,11 +143,17 @@ int main(void)
   MX_USART3_UART_Init();
   MX_SPI1_Init();
   MX_ADC1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   if (printf_init(&hlpuart1) != 0) {
     Error_Handler();
   }
-  (void)printf("%s\r\n", "printf_init...ok");
+  (void)printf("printf_init...ok\r\n");
+  if (MyADCInit(&hadc1) != 0) {
+    Error_Handler();
+  }
+  (void)printf("MyADCInit...ok\r\n");
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -177,18 +190,22 @@ int main(void)
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
+  if (NULL == defaultTaskHandle) {
+    Error_Handler();
+  }
   /* add threads, ... */
-  MainTaskHandle = xTaskCreateStatic(
-      StartMainTask,
-      "StartMainTask",
-      MAINTASK_STACK_SIZE,
-      NULL,
-      configMAX_PRIORITIES - 5,
-      defaultTaskBuffer,
-      &xdefaultTaskBuffer);
-
-  (void)StartSPITask(&hspi1);
-  (void)ShellTaskStart();
+  retval = StartSPITask(&hspi1);
+  if (retval != 0) {
+    Error_Handler();
+  }
+  retval = ShellTaskStart();
+  if (retval != 0) {
+    Error_Handler();
+  }
+  retval = ADCTaskStart(&hadc1);
+  if (retval != 0) {
+    Error_Handler();
+  }
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -288,7 +305,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIG_T3_TRGO;
   hadc1.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_RISING;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun               = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.OversamplingMode      = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK) {
@@ -418,7 +435,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Direction      = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize       = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity    = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase       = SPI_PHASE_1EDGE;
+  hspi1.Init.CLKPhase       = SPI_PHASE_2EDGE;
   hspi1.Init.NSS            = SPI_NSS_HARD_INPUT;
   hspi1.Init.FirstBit       = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode         = SPI_TIMODE_DISABLE;
@@ -432,6 +449,47 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+}
+
+/**
+ * @brief TIM3 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef  sClockSourceConfig = { 0 };
+  TIM_MasterConfigTypeDef sMasterConfig      = { 0 };
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance               = TIM3;
+  htim3.Init.Prescaler         = 12000;
+  htim3.Init.CounterMode       = TIM_COUNTERMODE_UP;
+  htim3.Init.Period            = 10000;
+  htim3.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 }
 
 /**
@@ -454,6 +512,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
 }
 
 /**
@@ -477,7 +538,7 @@ static void MX_GPIO_Init(void)
   HAL_PWREx_EnableVddIO2();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LD3_Pin | LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, ADCRDY_Pin | LD3_Pin | LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
@@ -491,8 +552,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD3_Pin LD2_Pin */
-  GPIO_InitStruct.Pin   = LD3_Pin | LD2_Pin;
+  /*Configure GPIO pins : ADCRDY_Pin LD3_Pin LD2_Pin */
+  GPIO_InitStruct.Pin   = ADCRDY_Pin | LD3_Pin | LD2_Pin;
   GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -541,34 +602,8 @@ void vCyclicTimerCB(TimerHandle_t xTimer)
 {
   (void)xTimer;
 
-  (void)xTaskNotify(MainTaskHandle, 0UL, eNoAction);
+  (void)xTaskNotify(defaultTaskHandle, 0UL, eNoAction);
 }
-
-static void StartMainTask(void* argument)
-{
-  (void)argument;
-  BaseType_t retStatus              = pdPASS;
-  // static const char strhelloworld[]        = "Hello. World!";
-  uint32_t   DefaultTaskNotifyValue = 0U;
-  uint32_t   clearonentry           = 0U;
-  uint32_t   clearonexit            = ULONG_MAX;
-
-  retStatus = xTimerStart(xCyclicTimerHandle, 0UL);
-  if (pdFAIL == retStatus) {
-    Error_Handler();
-  }
-  /* Infinite loop */
-  while (pdTRUE) {
-    retStatus = xTaskNotifyWait(clearonentry, clearonexit,
-        &DefaultTaskNotifyValue, portMAX_DELAY);
-    if (pdFAIL == retStatus) {
-      Error_Handler();
-    }
-    LEDToggle(LED1);
-    // printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
-  }
-}
-
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -582,8 +617,28 @@ void StartDefaultTask(void* argument)
 {
   /* USER CODE BEGIN 5 */
   (void)argument;
+  BaseType_t retStatus              = pdPASS;
+  // static const char strhelloworld[]        = "Hello. World!";
+  uint32_t   DefaultTaskNotifyValue = 0U;
+  uint32_t   clearonentry           = 0U;
+  uint32_t   clearonexit            = ULONG_MAX;
+
+  retStatus = xTimerStart(xCyclicTimerHandle, 0UL);
+  if (pdFAIL == retStatus) {
+    Error_Handler();
+  }
+
+  HAL_TIM_Base_Start_IT(&htim3);
+
+  /* Infinite loop */
   while (pdTRUE) {
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    retStatus = xTaskNotifyWait(clearonentry, clearonexit,
+        &DefaultTaskNotifyValue, portMAX_DELAY);
+    if (pdFAIL == retStatus) {
+      Error_Handler();
+    }
+    LEDToggle(LED1);
+    // printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
   }
   /* USER CODE END 5 */
 }
@@ -618,6 +673,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  LEDOff(LED1);
   LEDOn(LED3);
   while (1) {
   }

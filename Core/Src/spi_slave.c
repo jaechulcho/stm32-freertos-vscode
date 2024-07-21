@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "FreeRTOSConfig.h"
 #include <stdint.h>
 #include "FreeRTOS.h"
@@ -9,7 +10,7 @@
 
 #include "spi_slave.h"
 
-#define BUFFERSIZE (sizeof(aTxBuffer) - 1)
+#define BUFFERSIZE 16
 
 #define SPITASK_STACK_SIZE (256)
 
@@ -20,13 +21,13 @@ static StaticTask_t xSPITaskBuffer;
 static SPI_HandleTypeDef* hspi = NULL;
 
 /* Buffer used for transmission */
-static uint8_t aTxBuffer[] = "****SPI - Two Boards communication based on DMA **** SPI Message ******** SPI Message ******** SPI Message ****";
+static uint8_t aTxBuffer[BUFFERSIZE] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };
 
 /* Buffer used for reception */
 static uint8_t aRxBuffer[BUFFERSIZE];
 
 /* transfer state */
-static volatile uint32_t wTransferState = TRANSFER_WAIT;
+// static volatile uint32_t wTransferState = TRANSFER_WAIT;
 
 /* static function declaration */
 static void SPISlaveTask(void* pvParameters);
@@ -58,12 +59,18 @@ int StartSPITask(SPI_HandleTypeDef* phspi_)
 static void SPISlaveTask(void* pvParameters)
 {
   (void)pvParameters;
+
   while (pdTRUE) {
-    if (HAL_SPI_TransmitReceive_DMA(hspi, (uint8_t*)aTxBuffer, (uint8_t*)aRxBuffer, BUFFERSIZE) != HAL_OK) {
-      Error_Handler();
-    } else {
+    if (HAL_SPI_TransmitReceive_DMA(hspi, aTxBuffer, aRxBuffer, BUFFERSIZE) == HAL_OK) {
       ulTaskNotifyTake(0, portMAX_DELAY);
+    } else {
+      Error_Handler();
     }
+    printf("recv:");
+    for (int i = 0; i < BUFFERSIZE; i++) {
+      printf(" %02x", (int)aRxBuffer[i]);
+    }
+    printf("\r\n");
   }
 }
 

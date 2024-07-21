@@ -51,6 +51,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/spi_slave.c
     Core/Src/uart_api.c
     Core/Src/shell.c
+    Core/Src/adc_manage.c
     Middlewares/Third_Party/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI/FreeRTOS_CLI.c
 )
 
