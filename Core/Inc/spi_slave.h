@@ -14,7 +14,8 @@ enum {
   TRANSFER_ERROR,
 };
 
-int StartSPITask(SPI_HandleTypeDef* phspi_);
+extern int      StartSPITask(SPI_HandleTypeDef* phspi_);
+extern uint32_t GetSPITXBuf(void);
 
 #ifdef __cplusplus
 }

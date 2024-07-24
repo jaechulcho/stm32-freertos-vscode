@@ -69,6 +69,7 @@ DMA_HandleTypeDef hdma_spi1_rx;
 
 TIM_HandleTypeDef htim3;
 
+DMA_HandleTypeDef    hdma_memtomem_dma1_channel5;
 /* Definitions for defaultTask */
 osThreadId_t         defaultTaskHandle;
 uint32_t             defaultTaskBuffer[128];
@@ -148,11 +149,11 @@ int main(void)
   if (printf_init(&hlpuart1) != 0) {
     Error_Handler();
   }
-  (void)printf("printf_init...ok\r\n");
+  (void)PrintString("printf_init...ok\r\n");
   if (MyADCInit(&hadc1) != 0) {
     Error_Handler();
   }
-  (void)printf("MyADCInit...ok\r\n");
+  (void)PrintString("MyADCInit...ok\r\n");
 
   /* USER CODE END 2 */
 
@@ -435,7 +436,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Direction      = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize       = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity    = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase       = SPI_PHASE_2EDGE;
+  hspi1.Init.CLKPhase       = SPI_PHASE_1EDGE;
   hspi1.Init.NSS            = SPI_NSS_HARD_INPUT;
   hspi1.Init.FirstBit       = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode         = SPI_TIMODE_DISABLE;
@@ -494,6 +495,8 @@ static void MX_TIM3_Init(void)
 
 /**
  * Enable DMA controller clock
+ * Configure DMA for memory to memory transfers
+ *   hdma_memtomem_dma1_channel5
  */
 static void MX_DMA_Init(void)
 {
@@ -501,6 +504,20 @@ static void MX_DMA_Init(void)
   /* DMA controller clock enable */
   __HAL_RCC_DMAMUX1_CLK_ENABLE();
   __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* Configure DMA request hdma_memtomem_dma1_channel5 on DMA1_Channel5 */
+  hdma_memtomem_dma1_channel5.Instance                 = DMA1_Channel5;
+  hdma_memtomem_dma1_channel5.Init.Request             = DMA_REQUEST_MEM2MEM;
+  hdma_memtomem_dma1_channel5.Init.Direction           = DMA_MEMORY_TO_MEMORY;
+  hdma_memtomem_dma1_channel5.Init.PeriphInc           = DMA_PINC_ENABLE;
+  hdma_memtomem_dma1_channel5.Init.MemInc              = DMA_MINC_ENABLE;
+  hdma_memtomem_dma1_channel5.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+  hdma_memtomem_dma1_channel5.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+  hdma_memtomem_dma1_channel5.Init.Mode                = DMA_NORMAL;
+  hdma_memtomem_dma1_channel5.Init.Priority            = DMA_PRIORITY_VERY_HIGH;
+  if (HAL_DMA_Init(&hdma_memtomem_dma1_channel5) != HAL_OK) {
+    Error_Handler();
+  }
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
@@ -515,6 +532,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 }
 
 /**
@@ -638,7 +658,7 @@ void StartDefaultTask(void* argument)
       Error_Handler();
     }
     LEDToggle(LED1);
-    // printf("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
+    // PrintString("[%6lu] %s\r\n", (unsigned long)DefaultTaskNotifyValue, strhelloworld);
   }
   /* USER CODE END 5 */
 }

@@ -10,8 +10,9 @@
 extern "C" {
 #endif
 
-extern int MyADCInit(ADC_HandleTypeDef* hadc);
-extern int ADCTaskStart(ADC_HandleTypeDef* hadc);
+extern uint32_t get_adc_error_cnt(void);
+extern int      MyADCInit(ADC_HandleTypeDef* hadc);
+extern int      ADCTaskStart(ADC_HandleTypeDef* hadc);
 
 #ifdef __cplusplus
 }

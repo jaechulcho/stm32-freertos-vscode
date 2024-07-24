@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdarg.h>
 #include "FreeRTOS.h"
 #include "portmacro.h"
 #include "semphr.h"
@@ -57,17 +59,12 @@ int uart_send(char* ptr_, int len_)
       len_ = 0;
     }
   } else {
-
-    (void)xSemaphoreTake(huartmutex, portMAX_DELAY);
-
     retval = HAL_UART_Transmit_DMA(puart, (uint8_t*)ptr_, (uint16_t)len_);
     if (retval != HAL_OK) {
       len_ = 0;
     } else {
       (void)xSemaphoreTake(huarttxsema, portMAX_DELAY);
     }
-
-    (void)xSemaphoreGive(huartmutex);
   }
   return len_;
 }
@@ -76,6 +73,25 @@ int _write(int file_, char* ptr_, int len_)
 {
   (void)file_;
   return uart_send(ptr_, len_);
+}
+
+void PrintString(const char* format, ...)
+{
+  va_list    args;
+  BaseType_t state;
+
+  va_start(args, format);
+
+  state = xTaskGetSchedulerState();
+
+  if (taskSCHEDULER_NOT_STARTED == state) {
+    vprintf(format, args);
+  } else {
+    (void)xSemaphoreTake(huartmutex, portMAX_DELAY);
+    vprintf(format, args);
+    (void)xSemaphoreGive(huartmutex);
+  }
+  va_end(args);
 }
 
 /*

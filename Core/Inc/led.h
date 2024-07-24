@@ -1,7 +1,6 @@
 #ifndef __LED_H
 #define __LED_H
 
-#include "cmsis_gcc.h"
 #include "stm32l4xx_hal.h"
 #include "stm32l4xx_hal_gpio.h"
 
