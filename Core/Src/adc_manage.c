@@ -59,7 +59,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
         &hdma_memtomem_dma1_channel5,
         (uint32_t)(ADCResult),
         GetSPITXBuf(),
-        sizeof(ADCResult));
+        sizeof(ADCResult) / sizeof(uint32_t));
     if (HAL_ERROR == retapi) {
       adc_error_cnt++;
     }
