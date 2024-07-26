@@ -103,10 +103,10 @@ static void ADCTask(void* pvParameters)
 
   while (pdTRUE) {
     ulTaskNotifyTake(0, portMAX_DELAY);
-    PrintString("ADCTask[%06u]: ", adc_error_cnt);
-    for (int i = 0; i < ADC_RESULT_SIZE; i++) {
-      PrintString("%04x ", (int)ADCResult[i]);
-    }
-    PrintString("\r\n");
+    // PrintString("ADCTask[%06u]: ", adc_error_cnt);
+    // for (int i = 0; i < ADC_RESULT_SIZE; i++) {
+    //   PrintString("%04x ", (int)ADCResult[i]);
+    // }
+    // PrintString("\r\n");
   }
 }

@@ -82,21 +82,21 @@ static void SPISlaveTask(void* pvParameters)
 {
   (void)pvParameters;
   HAL_StatusTypeDef retapi;
-  HAL_SPI_StateTypeDef retspi;
+  // HAL_SPI_StateTypeDef retspi;
 
   while (pdTRUE) {
     // memory to memory transfer complete waiting
     ulTaskNotifyTake(0, portMAX_DELAY);
-    PrintString("SPITask[%06u]: ", spi_error_cnt);
-    for (int i = 0; i < BUFFERSIZE / 2; i++) {
-      PrintString("%04x ", (int)((uint16_t*)aTxBuffer)[i]);
-    }
-    PrintString("\r\n");
+    // PrintString("SPITask[%06u]: ", spi_error_cnt);
+    // for (int i = 0; i < BUFFERSIZE / 2; i++) {
+    //   PrintString("%04x ", (int)((uint16_t*)aTxBuffer)[i]);
+    // }
+    // PrintString("\r\n");
 
-    retspi = HAL_SPI_GetState(hspi);
-    if (HAL_SPI_STATE_READY != retspi) {
-      (void)HAL_SPI_DMAStop(hspi);
-    }
+    // retspi = HAL_SPI_GetState(hspi);
+    // if (HAL_SPI_STATE_READY != retspi) {
+    //   (void)HAL_SPI_DMAStop(hspi);
+    // }
     retapi = HAL_SPI_TransmitReceive_DMA(
         hspi,
         aTxBuffer,
