@@ -146,6 +146,7 @@ int main(void)
   if (printf_init(&hlpuart1) != 0) {
     Error_Handler();
   }
+  (void)PrintString("\r\n8CH ADC FW ver1.0\r\n");
   (void)PrintString("printf_init...ok\r\n");
   if (MyADCInit(&hadc1) != 0) {
     Error_Handler();

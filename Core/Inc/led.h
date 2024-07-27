@@ -28,9 +28,24 @@ __STATIC_INLINE void LEDToggle(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
   HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
 }
 
-__STATIC_INLINE void GPIOToggle(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
+__STATIC_INLINE void GPOOn(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
+{
+  HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}
+
+__STATIC_INLINE void GPOOff(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
+{
+  HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
+}
+
+__STATIC_INLINE void GPOToggle(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
 {
   HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
+}
+
+__STATIC_INLINE GPIO_PinState GetGPOState(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
+{
+  return HAL_GPIO_ReadPin(GPIOx, GPIO_Pin);
 }
 
 #ifdef __cplusplus

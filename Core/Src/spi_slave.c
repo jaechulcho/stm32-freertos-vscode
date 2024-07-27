@@ -30,6 +30,7 @@ static StaticTask_t xSPITaskBuffer;
 static SPI_HandleTypeDef* hspi = NULL;
 
 static volatile uint32_t spi_error_cnt;
+static volatile uint32_t spi_trxcmplt_cnt;
 
 /* Buffer used for transmission */
 static uint8_t aTxBuffer[BUFFERSIZE];
@@ -81,36 +82,17 @@ int StartSPITask(SPI_HandleTypeDef* phspi_)
 static void SPISlaveTask(void* pvParameters)
 {
   (void)pvParameters;
-  HAL_StatusTypeDef retapi;
-  // HAL_SPI_StateTypeDef retspi;
+  uint32_t uloopcnt     = 0UL;
+  uint32_t uloopcntprev = 0UL;
 
   while (pdTRUE) {
     // memory to memory transfer complete waiting
-    ulTaskNotifyTake(0, portMAX_DELAY);
-    // PrintString("SPITask[%06u]: ", spi_error_cnt);
-    // for (int i = 0; i < BUFFERSIZE / 2; i++) {
-    //   PrintString("%04x ", (int)((uint16_t*)aTxBuffer)[i]);
-    // }
-    // PrintString("\r\n");
-
-    // retspi = HAL_SPI_GetState(hspi);
-    // if (HAL_SPI_STATE_READY != retspi) {
-    //   (void)HAL_SPI_DMAStop(hspi);
-    // }
-    retapi = HAL_SPI_TransmitReceive_DMA(
-        hspi,
-        aTxBuffer,
-        aRxBuffer,
-        BUFFERSIZE);
-    if (HAL_OK == retapi) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if ((uloopcnt & 0x400UL) && ((uloopcntprev & 0x400UL) == 0UL)) {
       LEDToggle(LED3);
-      LEDOn(ADCRDY);
-      LEDOff(ADCRDY);
-      // spi transfer complete waiting
-      ulTaskNotifyTake(0, portMAX_DELAY);
-    } else {
-      PrintString("HAL_SPI_TransmitReceive_DMA error\r\n");
     }
+    uloopcntprev = uloopcnt;
+    uloopcnt += 1UL;
   }
 }
 
@@ -121,7 +103,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef* hspi_)
 
   if (hspi_ == hspi) {
     vTaskNotifyGiveFromISR(SpiTaskHandle, &HigherPriorityTaskWoken);
-    spi_error_cnt++;
+    spi_trxcmplt_cnt += 1UL;
   }
 
   portYIELD_FROM_ISR(HigherPriorityTaskWoken);
@@ -130,10 +112,25 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef* hspi_)
 // memory dma transfer complet callback
 static void XferCpltCallback(DMA_HandleTypeDef* hdma)
 {
-  BaseType_t HigherPriorityTaskWoken = pdFALSE;
+  BaseType_t           HigherPriorityTaskWoken = pdFALSE;
+  HAL_StatusTypeDef    retapi;
+  HAL_SPI_StateTypeDef retspi;
 
   if (hdma == &hdma_memtomem_dma1_channel5) {
-    vTaskNotifyGiveFromISR(SpiTaskHandle, &HigherPriorityTaskWoken);
+    retspi = HAL_SPI_GetState(hspi);
+    if (HAL_SPI_STATE_READY != retspi) {
+      (void)HAL_SPI_DMAStop(hspi);
+      spi_error_cnt += 1UL;
+    }
+    retapi = HAL_SPI_TransmitReceive_DMA(
+        hspi,
+        aTxBuffer,
+        aRxBuffer,
+        BUFFERSIZE);
+    if (HAL_OK == retapi) {
+      GPOOn(ADCRDY);
+      GPOOff(ADCRDY);
+    }
   }
 
   portYIELD_FROM_ISR(HigherPriorityTaskWoken);
