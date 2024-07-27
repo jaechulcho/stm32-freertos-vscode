@@ -10,6 +10,7 @@
 #include "stm32l4xx_hal_uart.h"
 #include "uart_api.h"
 #include "myerror.h"
+#include "embedded_cli.h"
 
 #define MAX_RXQUE_SIZE (1)
 /* external variable */

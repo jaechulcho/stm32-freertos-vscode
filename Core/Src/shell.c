@@ -13,6 +13,10 @@
 #include "stm32l4xx_hal.h"
 #include "uart_api.h"
 
+#define EMBEDDED_CLI_IMPL
+#include "embedded_cli.h"
+
+// for task
 #define SHELLTASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 128U)
 
 static TaskHandle_t ShellTaskHandle;
@@ -25,34 +29,30 @@ static QueueHandle_t xShellUartRxQueue;
 static StaticQueue_t xShellQueue;
 static uint8_t       ucShellQueStorageArea[SHELL_QUE_LENGTH * SHELL_QUE_ITEM_SIZE];
 
-#define CMD_IN_LEN  (SHELL_QUE_LENGTH)
-#define CMD_OUT_LEN (SHELL_QUE_LENGTH * 2)
-static const char* prompt = "> ";
-static char        uinbuf[CMD_IN_LEN];
-static char        uprevinbuf[CMD_IN_LEN];
-static char        uoutbuf[CMD_OUT_LEN];
+// for embedded_cli
+// CLI buffer
+static EmbeddedCli* cli;
+static CLI_UINT     cliBuffer[BYTES_TO_CLI_UINTS(CLI_BUFFER_SIZE)];
+// Bool to disable the interrupts, if CLI is not yet ready.
+static bool         cliIsReady = false;
 
-static int  xGetChar(uint8_t* prxChar_, size_t len_);
+static void setupCli(void);
+static void writeCharToCli(EmbeddedCli* embeddedCli, char c);
+
+// private functions
+static int  xGetChar(void);
 static void ShellTask(void* argument);
-static int  vConsoleWrite(const char* buff);
+static void initCliBinding(void);
+static void Cmd_clearCLI(EmbeddedCli* cli, char* args, void* context);
 
 /* shell command functions */
-static BaseType_t prvCmdVersion(char* pcWriteBuffer, size_t xWriteBufferLen, const char* pcCommandString);
 
 /* shell command structure list */
-static const CLI_Command_Definition_t cmdlist[] = {
-  { "gver", "gver: Get FW version\r\n", prvCmdVersion, 0 },
-  { NULL, NULL, NULL, 0 }
-};
 
+/* ShellTaskStart */
 int ShellTaskStart(void)
 {
-  int                             retval = ERR_NONE;
-  const CLI_Command_Definition_t* pcmd;
-
-  for (pcmd = cmdlist; pcmd->pcCommand != NULL; pcmd++) {
-    (void)FreeRTOS_CLIRegisterCommand(pcmd);
-  }
+  int retval = ERR_NONE;
 
   if (retval == 0) {
     xShellUartRxQueue = xQueueCreateStatic(
@@ -84,109 +84,93 @@ int ShellTaskStart(void)
   return retval;
 }
 
+/* ShellTask Impt */
 static void ShellTask(void* argument)
 {
   (void)argument;
-  uint8_t    recvch   = '\0';
-  uint16_t   uinindex = 0;
-  BaseType_t remained;
 
-  (void)uart_rx_it_enable();
+  (void)setupCli();
 
+  embeddedCliProcess(cli);
   while (pdTRUE) {
-    xGetChar(&recvch, sizeof(recvch));
-    switch (recvch) {
-    case '\r':
-    case '\n':
-      if (uinindex != 0U) {
-        vConsoleWrite("\r\n\r\n");
-        strncpy(uprevinbuf, uinbuf, sizeof(uprevinbuf));
-        do {
-          remained = FreeRTOS_CLIProcessCommand(
-              uinbuf,
-              uoutbuf,
-              sizeof(uoutbuf));
-          vConsoleWrite(uoutbuf);
-        } while (remained == pdTRUE);
-      }
-      uinindex = 0;
-      memset(uinbuf, 0, sizeof(uinbuf));
-      memset(uoutbuf, 0, sizeof(uoutbuf));
-      vConsoleWrite("\r\n");
-      vConsoleWrite(prompt);
-      break;
-    case '\f': // press 1 and 2 sequensely in numeric key with ALT down
-      vConsoleWrite("\x1b[2J\x1b[0;0H");
-      vConsoleWrite("\r\n");
-      vConsoleWrite(prompt);
-      break;
-    case 3: /* Ctrl+C*/
-      uinindex = 0;
-      memset(uinbuf, 0, sizeof(uinbuf));
-      vConsoleWrite("\r\n");
-      vConsoleWrite(prompt);
-      break;
-    case 127:
-    case 21:
-    case '\b':
-      if (uinindex > 0) {
-        uinindex--;
-        uinbuf[uinindex] = '\0';
-        vConsoleWrite("\b \b");
-      }
-      break;
-    case '\t':
-      while (uinindex) {
-        uinindex--;
-        vConsoleWrite("\b \b");
-      }
-      strncpy(uinbuf, uprevinbuf, sizeof(uinbuf));
-      uinindex = (uint16_t)strlen(uinbuf);
-      vConsoleWrite(uinbuf);
-      break;
-    default:
-      if ((uinindex < (sizeof(uinbuf) - 1)) && ((recvch >= 32) && (recvch <= 126))) {
-        uinbuf[uinindex] = recvch;
-        vConsoleWrite(uinbuf + uinindex);
-        uinindex++;
-      }
-      break;
-    }
+    (void)xGetChar();
+    embeddedCliProcess(cli);
   }
 }
 
-static int xGetChar(uint8_t* prxChar_, size_t len_)
+static int xGetChar(void)
 {
-  (void)len_;
   int        retval = ERR_NONE;
   BaseType_t xRet;
+  char       recvch;
 
-  if (xShellUartRxQueue == NULL || prxChar_ == NULL) {
+  if (xShellUartRxQueue == NULL) {
     retval = ERR_INVALID_ARGUMENT;
   }
   if (retval == ERR_NONE) {
-    xRet = xQueueReceive(xShellUartRxQueue, prxChar_, portMAX_DELAY);
+    xRet = xQueueReceive(xShellUartRxQueue, &recvch, portMAX_DELAY);
     if (pdFALSE == xRet) {
       retval = ERR_QUEUERECV;
+    } else {
+      embeddedCliReceiveChar(cli, recvch);
     }
   }
 
   return retval;
 }
 
-static int vConsoleWrite(const char* buff)
+static void setupCli(void)
 {
-  int retval;
-  retval = uart_send((void*)buff, strlen(buff));
-  return retval;
+  // UART interrupt
+  (void)uart_rx_it_enable();
+  // Initialize the CLI configuration settings
+  EmbeddedCliConfig* config  = embeddedCliDefaultConfig();
+  config->cliBuffer          = cliBuffer;
+  config->cliBufferSize      = CLI_BUFFER_SIZE;
+  config->rxBufferSize       = CLI_RX_BUFFER_SIZE;
+  config->cmdBufferSize      = CLI_CMD_BUFFER_SIZE;
+  config->historyBufferSize  = CLI_HISTORY_SIZE;
+  config->maxBindingCount    = CLI_MAX_BINDING_COUNT;
+  config->enableAutoComplete = false;
+  // Create new CLI instance
+  cli                        = embeddedCliNew(config);
+  // Assign character write function
+  cli->writeChar             = writeCharToCli;
+
+  // Add all the inital command bindings
+  initCliBinding();
+  // Init the CLI with blank screen
+  // Cmd_clearCLI(cli, NULL, NULL);
+  // CLI has now bean initialzed, set bool to true to enable interrupt.
+  cliIsReady = true;
 }
 
-static BaseType_t prvCmdVersion(char* pcWriteBuffer, size_t xWriteBufferLen, const char* pcCommandString)
+static void writeCharToCli(EmbeddedCli* embeddedCli, char c)
 {
-  BaseType_t retval = pdFALSE;
-  (void)pcCommandString;
+  (void)embeddedCli;
 
-  (void)snprintf(pcWriteBuffer, xWriteBufferLen, "%s\r\n", "Hello. World");
+  (void)uart_send((char*)&c, 1);
+}
 
-  return retval;
+static void initCliBinding(void)
+{
+  CliCommandBinding clear_binding = {
+    .name         = "clear",
+    .help         = "Clears the console",
+    .tokenizeArgs = true,
+    .context      = NULL,
+    .binding      = Cmd_clearCLI
+  };
+
+  embeddedCliAddBinding(cli, clear_binding);
+}
+
+static void Cmd_clearCLI(EmbeddedCli* cli, char* args, void* context)
+{
+  (void)cli;
+  (void)args;
+  (void)context;
+
+  printf("\33[2J");
+  fflush(NULL);
 }

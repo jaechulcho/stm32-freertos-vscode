@@ -53,12 +53,14 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/shell.c
     Core/Src/adc_manage.c
     Middlewares/Third_Party/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI/FreeRTOS_CLI.c
+    Middlewares/Third_Party/embedded-cli/embedded_cli.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     Middlewares/Third_Party/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI
+    Middlewares/Third_Party/embedded-cli
 )
 
 # Add project symbols (macros)
